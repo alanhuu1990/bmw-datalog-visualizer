@@ -1,20 +1,21 @@
 import rawChangelog from '../../CHANGELOG.md?raw';
 
 const SECTION_HEADING = /^### (Added|Changed|Fixed|Removed|Deprecated|Security)$/;
-const RELEASE_HEADING = /^## \[(.+?)\](?: - (.+))?$/;
+const RELEASE_HEADING = /^\[(.+?)\](?: - (.+))?$/;
 
 function parseSectionBlock(lines) {
   const sections = [];
   let current = null;
 
   for (const line of lines) {
-    const headingMatch = line.match(SECTION_HEADING);
+    const trimmed = line.replace(/\r$/, '');
+    const headingMatch = trimmed.match(SECTION_HEADING);
     if (headingMatch) {
       current = { title: headingMatch[1], items: [] };
       sections.push(current);
       continue;
     }
-    const itemMatch = line.match(/^- (.+)$/);
+    const itemMatch = trimmed.match(/^- (.+)$/);
     if (itemMatch && current) {
       current.items.push(itemMatch[1]);
     }
@@ -24,7 +25,8 @@ function parseSectionBlock(lines) {
 }
 
 export function parseChangelog(raw) {
-  const blocks = raw.split(/^## /m).slice(1);
+  const normalized = raw.replace(/\r\n/g, '\n');
+  const blocks = normalized.split(/^## /m).slice(1);
   let unreleased = null;
   const releases = [];
 

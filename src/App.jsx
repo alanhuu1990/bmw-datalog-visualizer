@@ -54,9 +54,9 @@ function VisualizerPage({
     <>
       <div style={{
         background: '#090b10', padding: '12px 14px 0', maxWidth: 960, margin: '0 auto',
-        fontFamily: shellFont, position: 'relative',
+        fontFamily: shellFont,
       }}>
-        <div style={{ position: 'absolute', top: 12, right: 14, zIndex: 2, display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10 }}>
           <ChangelogButton />
           <ConfigButton />
         </div>

@@ -1,15 +1,18 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   getDefaultSelectedKeys,
   sortColumnsForPicker,
-  SOFT_SERIES_LIMIT,
 } from '../lib/columnMeta';
+import { useVisualizerSettings } from '../context/VisualizerSettingsContext';
 
 export default function ColumnSelector({
   columns,
   selectedKeys,
   onSelectedKeysChange,
 }) {
+  const { settings } = useVisualizerSettings();
+  const maxGaugeBars = settings.maxGaugeBars;
   const [open, setOpen] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -36,7 +39,8 @@ export default function ColumnSelector({
     }
   };
 
-  const overLimit = selectedKeys.length > SOFT_SERIES_LIMIT;
+  const overGaugeLimit = selectedKeys.length > maxGaugeBars;
+  const atGaugeLimit = selectedKeys.length === maxGaugeBars && maxGaugeBars > 0;
 
   return (
     <div style={{
@@ -66,9 +70,16 @@ export default function ColumnSelector({
         <span>
           <span style={{ color: '#6b7280', letterSpacing: '0.1em', marginRight: 8 }}>PARAMETERS</span>
           {selectedKeys.length} selected
-          {overLimit && (
+          {overGaugeLimit && (
+            <span style={{ color: '#f87171', marginLeft: 8 }}>
+              — exceeds max gauge bars ({maxGaugeBars} in{' '}
+              <Link to="/settings" style={{ color: '#fbbf24', textDecoration: 'underline' }}>Settings</Link>)
+            </span>
+          )}
+          {!overGaugeLimit && atGaugeLimit && (
             <span style={{ color: '#fbbf24', marginLeft: 8 }}>
-              — chart may be hard to read ({selectedKeys.length} series)
+              — at max gauge bars ({maxGaugeBars} in{' '}
+              <Link to="/settings" style={{ color: '#fbbf24', textDecoration: 'underline' }}>Settings</Link>)
             </span>
           )}
         </span>

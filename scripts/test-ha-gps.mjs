@@ -6,6 +6,12 @@ import {
   buildHaHistoryUrl,
 } from '../src/lib/integrations/homeassistant.js';
 import { mergeHaSamplesToGpsTrack } from '../src/lib/integrations/gpsMerge.js';
+import { HA_GPS_ENABLED } from '../src/lib/integrations/haFeature.js';
+
+if (!HA_GPS_ENABLED) {
+  console.log('SKIP ha-gps: Home Assistant GPS disabled (HA_GPS_ENABLED = false)');
+  process.exit(0);
+}
 
 const HA_FIXTURE = [
   [

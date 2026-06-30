@@ -3,7 +3,9 @@ import { Routes, Route } from 'react-router-dom';
 import FileUpload from './components/FileUpload';
 import ThermalPlayback from './components/ThermalPlayback';
 import ConfigButton from './components/ConfigButton';
+import ChangelogButton from './components/ChangelogButton';
 import SettingsPage from './pages/SettingsPage';
+import ChangelogPage from './pages/ChangelogPage';
 import { VisualizerSettingsProvider } from './context/VisualizerSettingsContext';
 import { parseDatalog, getDefaultSelectedKeys } from './lib/parseDatalog';
 import { parseGpx } from './lib/parseGpx';
@@ -54,7 +56,8 @@ function VisualizerPage({
         background: '#090b10', padding: '12px 14px 0', maxWidth: 960, margin: '0 auto',
         fontFamily: shellFont, position: 'relative',
       }}>
-        <div style={{ position: 'absolute', top: 12, right: 14, zIndex: 2 }}>
+        <div style={{ position: 'absolute', top: 12, right: 14, zIndex: 2, display: 'flex', gap: 8 }}>
+          <ChangelogButton />
           <ConfigButton />
         </div>
         <FileUpload
@@ -190,6 +193,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<VisualizerPage {...sharedProps} />} />
       <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/changelog" element={<ChangelogPage />} />
     </Routes>
   );
 }

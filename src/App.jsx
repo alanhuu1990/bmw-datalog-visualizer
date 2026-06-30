@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import FileUpload from './components/FileUpload';
 import ThermalPlayback from './components/ThermalPlayback';
+import ConfigButton from './components/ConfigButton';
+import SettingsPage from './pages/SettingsPage';
+import { VisualizerSettingsProvider } from './context/VisualizerSettingsContext';
 import { parseDatalog, getDefaultSelectedKeys } from './lib/parseDatalog';
 import { parseGpx } from './lib/parseGpx';
 import { detectPhases } from './lib/phaseDetection';
@@ -23,7 +27,91 @@ function buildLogState(parsed) {
   };
 }
 
-export default function App() {
+const shellFont = "'IBM Plex Mono','Fira Code','Courier New',monospace";
+
+function VisualizerPage({
+  log,
+  selectedKeys,
+  onSelectedKeysChange,
+  gpsTrack,
+  syncMode,
+  onSyncModeChange,
+  manualOffsetSec,
+  onManualOffsetChange,
+  loadDatalog,
+  loadGpx,
+  onClearDatalog,
+  onClearGpx,
+  datalogError,
+  gpsError,
+  loading,
+}) {
+  const hasContent = log || gpsTrack;
+
+  return (
+    <>
+      <div style={{
+        background: '#090b10', padding: '12px 14px 0', maxWidth: 960, margin: '0 auto',
+        fontFamily: shellFont, position: 'relative',
+      }}>
+        <div style={{ position: 'absolute', top: 12, right: 14, zIndex: 2 }}>
+          <ConfigButton />
+        </div>
+        <FileUpload
+          onDatalog={loadDatalog}
+          onGpx={loadGpx}
+          onClearDatalog={onClearDatalog}
+          onClearGpx={onClearGpx}
+          datalogName={log?.meta?.fileName}
+          gpxName={gpsTrack?.fileName}
+          disabled={loading}
+        />
+        {datalogError && (
+          <div style={{
+            marginTop: 8, padding: '8px 12px', background: '#3b1c1c',
+            border: '1px solid #f8717144', borderRadius: 6, fontSize: 11, color: '#f87171',
+          }}>
+            Datalog: {datalogError}
+          </div>
+        )}
+        {gpsError && (
+          <div style={{
+            marginTop: 8, padding: '8px 12px', background: '#3b1c1c',
+            border: '1px solid #f8717144', borderRadius: 6, fontSize: 11, color: '#f87171',
+          }}>
+            GPS: {gpsError}
+          </div>
+        )}
+      </div>
+
+      {hasContent ? (
+        <ThermalPlayback
+          rows={log?.rows ?? null}
+          columns={log?.columns ?? null}
+          selectedKeys={selectedKeys}
+          onSelectedKeysChange={onSelectedKeysChange}
+          ambient={log?.ambient ?? null}
+          phases={log?.phases ?? null}
+          meta={log?.meta ?? null}
+          gpsTrack={gpsTrack}
+          syncMode={syncMode}
+          onSyncModeChange={onSyncModeChange}
+          manualOffsetSec={manualOffsetSec}
+          onManualOffsetChange={onManualOffsetChange}
+        />
+      ) : (
+        <div style={{
+          background: '#090b10', minHeight: '60vh', color: '#6b7280',
+          fontFamily: shellFont, padding: 40, textAlign: 'center', fontSize: 12,
+        }}>
+          Upload a datalog CSV, GPX track, or both.
+        </div>
+      )}
+    </>
+  );
+}
+
+function AppRoutes() {
   const [log, setLog] = useState(null);
   const [selectedKeys, setSelectedKeys] = useState([]);
   const [gpsTrack, setGpsTrack] = useState(null);
@@ -69,7 +157,7 @@ export default function App() {
     background: '#090b10',
     minHeight: '100vh',
     color: '#6b7280',
-    fontFamily: "'IBM Plex Mono','Fira Code','Courier New',monospace",
+    fontFamily: shellFont,
   };
 
   if (loading) {
@@ -80,61 +168,36 @@ export default function App() {
     );
   }
 
-  const hasContent = log || gpsTrack;
+  const sharedProps = {
+    log,
+    selectedKeys,
+    onSelectedKeysChange: setSelectedKeys,
+    gpsTrack,
+    syncMode,
+    onSyncModeChange: setSyncMode,
+    manualOffsetSec,
+    onManualOffsetChange: setManualOffsetSec,
+    loadDatalog,
+    loadGpx,
+    onClearDatalog: () => { setLog(null); setSelectedKeys([]); setDatalogError(null); },
+    onClearGpx: () => { setGpsTrack(null); setGpsError(null); },
+    datalogError,
+    gpsError,
+    loading,
+  };
 
   return (
-    <div>
-      <div style={{
-        background: '#090b10', padding: '12px 14px 0', maxWidth: 960, margin: '0 auto',
-        fontFamily: "'IBM Plex Mono','Fira Code','Courier New',monospace",
-      }}>
-        <FileUpload
-          onDatalog={loadDatalog}
-          onGpx={loadGpx}
-          onClearDatalog={() => { setLog(null); setSelectedKeys([]); setDatalogError(null); }}
-          onClearGpx={() => { setGpsTrack(null); setGpsError(null); }}
-          datalogName={log?.meta?.fileName}
-          gpxName={gpsTrack?.fileName}
-          disabled={loading}
-        />
-        {datalogError && (
-          <div style={{
-            marginTop: 8, padding: '8px 12px', background: '#3b1c1c',
-            border: '1px solid #f8717144', borderRadius: 6, fontSize: 11, color: '#f87171',
-          }}>
-            Datalog: {datalogError}
-          </div>
-        )}
-        {gpsError && (
-          <div style={{
-            marginTop: 8, padding: '8px 12px', background: '#3b1c1c',
-            border: '1px solid #f8717144', borderRadius: 6, fontSize: 11, color: '#f87171',
-          }}>
-            GPS: {gpsError}
-          </div>
-        )}
-      </div>
+    <Routes>
+      <Route path="/" element={<VisualizerPage {...sharedProps} />} />
+      <Route path="/settings" element={<SettingsPage />} />
+    </Routes>
+  );
+}
 
-      {hasContent ? (
-        <ThermalPlayback
-          rows={log?.rows ?? null}
-          columns={log?.columns ?? null}
-          selectedKeys={selectedKeys}
-          onSelectedKeysChange={setSelectedKeys}
-          ambient={log?.ambient ?? null}
-          phases={log?.phases ?? null}
-          meta={log?.meta ?? null}
-          gpsTrack={gpsTrack}
-          syncMode={syncMode}
-          onSyncModeChange={setSyncMode}
-          manualOffsetSec={manualOffsetSec}
-          onManualOffsetChange={setManualOffsetSec}
-        />
-      ) : (
-        <div style={{ ...shellStyle, padding: 40, textAlign: 'center', fontSize: 12 }}>
-          Upload a datalog CSV, GPX track, or both.
-        </div>
-      )}
-    </div>
+export default function App() {
+  return (
+    <VisualizerSettingsProvider>
+      <AppRoutes />
+    </VisualizerSettingsProvider>
   );
 }

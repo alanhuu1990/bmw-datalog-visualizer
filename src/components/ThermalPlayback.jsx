@@ -9,7 +9,7 @@ import GpsSyncControls from './GpsSyncControls';
 import ColumnSelector from './ColumnSelector';
 import { useVisualizerSettings } from '../context/VisualizerSettingsContext';
 import { PAGE_LAYOUTS } from '../lib/visualizerSettings';
-import { interpAt, usePlayback } from '../hooks/usePlayback';
+import { interpAt, usePlayback, PLAYBACK_SPEED_OPTIONS } from '../hooks/usePlayback';
 import { getPhase, PHASE_LABELS, PHASE_COLORS } from '../lib/phaseDetection';
 import {
   SYNC_MODES,
@@ -399,7 +399,7 @@ export default function ThermalPlayback({
 
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginLeft: 4 }}>
           <span style={{ fontSize: 10, color: '#4b5563' }}>SPEED</span>
-          {[4, 8, 16, 32, 64].map(s => (
+          {PLAYBACK_SPEED_OPTIONS.map(s => (
             <button key={s} onClick={() => setPlaybackRate(s)} style={{
               background: playbackRate === s ? '#1e293b' : 'transparent',
               border: `1px solid ${playbackRate === s ? '#6366f1' : '#1f2937'}`,

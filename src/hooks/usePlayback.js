@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 
+export const PLAYBACK_SPEED_OPTIONS = [1, 4, 8, 16, 32, 64];
+export const DEFAULT_PLAYBACK_RATE = 16;
+
 export function interpAt(rows, t, keys = []) {
   const N = rows.length;
   const values = {};
@@ -47,12 +50,12 @@ export function interpAt(rows, t, keys = []) {
 export function usePlayback(totalT, rows) {
   const [playing, setPlaying] = useState(false);
   const [playTime, setPlayTime] = useState(totalT);
-  const [playbackRate, setPlaybackRate] = useState(16);
+  const [playbackRate, setPlaybackRate] = useState(DEFAULT_PLAYBACK_RATE);
 
   const rafRef = useRef(null);
   const lastTsRef = useRef(null);
   const playTimeRef = useRef(totalT);
-  const playbackRateRef = useRef(16);
+  const playbackRateRef = useRef(DEFAULT_PLAYBACK_RATE);
   const playingRef = useRef(false);
 
   useEffect(() => {

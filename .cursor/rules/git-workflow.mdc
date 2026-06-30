@@ -1,0 +1,42 @@
+---
+description: Git branching and PR workflow — never push directly to develop
+alwaysApply: true
+---
+
+# Git workflow
+
+## Branching
+
+- **Never** commit or push directly to `develop` or `main` unless the user explicitly asks.
+- For new work, branch off `develop`:
+  - `feature/<short-description>`
+  - `fix/<short-description>`
+  - `chore/<short-description>`
+
+## Commits and pushes
+
+1. Commit only on the feature branch.
+2. Push the feature branch to `origin`.
+3. Open a **draft PR** with base branch **`develop`**.
+4. Do not merge unless the user asks.
+
+## Pull requests
+
+- Default merge target: **`develop`** (not `main`).
+- PR titles: prefix with `[Cursor] ` when the agent authors the change.
+- Include a short summary and test plan in the PR body.
+
+## Promoting to main
+
+- PRs to `main` are for release/integration of `develop`, not for routine feature work.
+
+## Example
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/session-persistence
+# ... make changes, commit ...
+git push -u origin feature/session-persistence
+gh pr create --draft --base develop --head feature/session-persistence
+```

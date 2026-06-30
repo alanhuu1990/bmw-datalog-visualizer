@@ -5,13 +5,13 @@ export function interpAt(rows, t, keys = []) {
   const values = {};
 
   if (N === 0) {
-    for (const key of keys) values[key] = 0;
+    for (const key of keys) values[key] = null;
     return { t, values };
   }
 
   const sample = (row) => {
     for (const key of keys) {
-      values[key] = row[key] ?? 0;
+      values[key] = Number.isFinite(row[key]) ? row[key] : null;
     }
     return { t: row.t, values };
   };
@@ -33,9 +33,12 @@ export function interpAt(rows, t, keys = []) {
   const f = span > 0 ? (t - r0.t) / span : 0;
 
   for (const key of keys) {
-    const va = r0[key] ?? 0;
-    const vb = r1[key] ?? 0;
-    values[key] = va + f * (vb - va);
+    const va = r0[key];
+    const vb = r1[key];
+    values[key] =
+      Number.isFinite(va) && Number.isFinite(vb)
+        ? va + f * (vb - va)
+        : null;
   }
 
   return { t, values };

@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'apexlog_ha_settings';
 
-export const DEFAULT_HA_URL = 'http://10.0.0.44:8123';
-export const DEFAULT_HA_ENTITY_ID = 'device_tracker.alan_bb';
+export const DEFAULT_HA_URL = '';
+export const DEFAULT_HA_ENTITY_ID = '';
 
 export function defaultHaSettings() {
   return {
@@ -19,7 +19,7 @@ export function loadHaSettings() {
     const parsed = JSON.parse(raw);
     return {
       url: parsed.url?.trim() || DEFAULT_HA_URL,
-      token: parsed.token ?? '',
+      token: '',
       entityId: parsed.entityId?.trim() || DEFAULT_HA_ENTITY_ID,
     };
   } catch {
@@ -29,7 +29,10 @@ export function loadHaSettings() {
 
 export function saveHaSettings(settings) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    url: settings.url,
+    entityId: settings.entityId,
+  }));
 }
 
 export function isHaConfigured(settings) {

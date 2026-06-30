@@ -123,7 +123,16 @@ export function groupColumnsByUnit(columns, selectedKeys) {
     groups[unit].hide = i >= MAX_AXES;
   });
 
-  return { groups, unitOrder };
+  const visibleUnitOrder = [];
+  const seenAxisIds = new Set();
+  for (const unit of unitOrder) {
+    const axisId = groups[unit].yAxisId;
+    if (seenAxisIds.has(axisId)) continue;
+    seenAxisIds.add(axisId);
+    visibleUnitOrder.push(unit);
+  }
+
+  return { groups, unitOrder: visibleUnitOrder };
 }
 
 export function formatValue(value, unit, decimals = null) {

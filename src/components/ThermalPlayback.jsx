@@ -316,9 +316,12 @@ export default function ThermalPlayback({
                   tick={{ fill: '#374151', fontSize: 9, fontFamily: 'inherit' }}
                   axisLine={false} tickLine={false} tickCount={10}
                 />
-                {unitOrder.map((unit, i) => {
+                {unitOrder.map((unit) => {
                   const g = groups[unit];
-                  const domain = autoDomainForKeys(rows, g.keys);
+                  const keysForAxis = unitOrder
+                    .filter(u => groups[u].yAxisId === g.yAxisId)
+                    .flatMap(u => groups[u].keys);
+                  const domain = autoDomainForKeys(rows, keysForAxis);
                   const isLeft = g.orientation === 'left';
                   return (
                     <YAxis

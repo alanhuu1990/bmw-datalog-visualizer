@@ -1,18 +1,27 @@
 /** @typedef {{ t: number, lat: number, lon: number, iso: string }} GpsPoint */
 
-const TRKPT_RE = /<trkpt[^>]*\slat="([^"]+)"\s+lon="([^"]+)"[^>]*>[\s\S]*?<time>([^<]+)<\/time>/gi;
+const TRKPT_BLOCK_RE = /<trkpt\b[^>]*>[\s\S]*?<\/trkpt>/gi;
+
+function parseTrkptBlock(block) {
+  const latMatch = block.match(/\blat=["']([^"']+)["']/i);
+  const lonMatch = block.match(/\blon=["']([^"']+)["']/i);
+  const timeMatch = block.match(/<time>([^<]+)<\/time>/i);
+  if (!latMatch || !lonMatch || !timeMatch) return null;
+  const lat = parseFloat(latMatch[1]);
+  const lon = parseFloat(lonMatch[1]);
+  const iso = timeMatch[1].trim();
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(ms)) return null;
+  return { ms, lat, lon, iso };
+}
 
 function parseTrackPoints(content) {
   const raw = [];
   let match;
-  TRKPT_RE.lastIndex = 0;
-  while ((match = TRKPT_RE.exec(content)) !== null) {
-    const lat = parseFloat(match[1]);
-    const lon = parseFloat(match[2]);
-    const iso = match[3].trim();
-    const ms = Date.parse(iso);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(ms)) continue;
-    raw.push({ ms, lat, lon, iso });
+  TRKPT_BLOCK_RE.lastIndex = 0;
+  while ((match = TRKPT_BLOCK_RE.exec(content)) !== null) {
+    const point = parseTrkptBlock(match[0]);
+    if (point) raw.push(point);
   }
   return raw;
 }

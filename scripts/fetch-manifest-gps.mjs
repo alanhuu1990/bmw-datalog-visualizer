@@ -92,6 +92,9 @@ function parseManifestCsv(text) {
 
 async function fetchHaHistory(baseUrl, token, entityId, startIso, endIso) {
   const url = buildHaHistoryUrl(baseUrl, entityId, startIso, endIso);
+  const controller = new AbortController();
+  const timeoutMs = 30_000;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response;
   try {
     response = await fetch(url, {
@@ -99,9 +102,15 @@ async function fetchHaHistory(baseUrl, token, entityId, startIso, endIso) {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      signal: controller.signal,
     });
   } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error(`Home Assistant request timed out after ${timeoutMs / 1000}s`);
+    }
     throw new Error(`Could not reach Home Assistant at ${baseUrl}: ${err.message}`);
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!response.ok) {
@@ -119,15 +128,28 @@ async function processRow(row, opts, token) {
   const logId = row.log_id?.trim();
   const startIso = row.start_time_iso?.trim();
   const endIso = row.end_time_iso?.trim();
-  const durationSeconds = Number(row.duration_seconds);
+  const rawDuration = row.duration_seconds?.trim();
+  const durationSeconds = Number(rawDuration);
   const baseUrl = row.ha_base_url?.trim() || DEFAULT_HA_URL;
   const entityId =
     opts.entity?.trim() ||
     row.ha_entity_id?.trim() ||
     DEFAULT_HA_ENTITY_ID;
 
-  if (!logId || !startIso || !endIso || !Number.isFinite(durationSeconds)) {
+  if (
+    !logId ||
+    !startIso ||
+    !endIso ||
+    rawDuration == null ||
+    rawDuration === '' ||
+    !Number.isFinite(durationSeconds) ||
+    durationSeconds < 0
+  ) {
     throw new Error('Missing log_id, start_time_iso, end_time_iso, or duration_seconds');
+  }
+
+  if (/[\\/]/.test(logId) || logId.includes('..')) {
+    throw new Error(`Invalid log_id for output file name: ${logId}`);
   }
 
   if (opts.dryRun) {
@@ -154,7 +176,10 @@ async function processRow(row, opts, token) {
     fetchedAt: new Date().toISOString(),
   };
 
-  const outPath = join(opts.outputDir, `${logId}.gps.json`);
+  const outPath = resolve(join(opts.outputDir, `${logId}.gps.json`));
+  if (!outPath.startsWith(resolve(opts.outputDir))) {
+    throw new Error(`Invalid log_id for output path: ${logId}`);
+  }
   writeFileSync(outPath, JSON.stringify(sidecar, null, 2), 'utf8');
 
   return {

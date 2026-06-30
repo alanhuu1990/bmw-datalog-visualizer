@@ -53,6 +53,10 @@ function findHighFlowSpans(rows, speedKey, speedThreshold = 45, minDuration = 45
  * @returns {{ warmupEnd, fwStart, fwEnd, totalT, hasPhases }}
  */
 export function detectPhases(rows, columns) {
+  if (rows.length === 0) {
+    return { warmupEnd: 0, fwStart: 0, fwEnd: 0, totalT: 0, hasPhases: false };
+  }
+
   const totalT = rows[rows.length - 1].t;
   const speedCol = findColumnByRole(columns, 'speed');
 

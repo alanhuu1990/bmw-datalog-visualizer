@@ -20,6 +20,7 @@ import {
   DEFAULT_HA_URL,
   haTokenFromEnv,
 } from '../src/lib/integrations/haSettings.js';
+import { HA_GPS_ENABLED } from '../src/lib/integrations/haFeature.js';
 
 function parseArgs(argv) {
   const opts = {
@@ -192,6 +193,11 @@ async function processRow(row, opts, token) {
 }
 
 async function main() {
+  if (!HA_GPS_ENABLED) {
+    console.error('Home Assistant GPS fetch is disabled. Set HA_GPS_ENABLED in src/lib/integrations/haFeature.js to re-enable.');
+    process.exit(1);
+  }
+
   const opts = parseArgs(process.argv);
 
   if (!opts.manifest) {

@@ -6,9 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fetch-gps": "node scripts/fetch-manifest-gps.mjs",
+    "test:ha-gps": "node scripts/test-ha-gps.mjs"
   },
   "dependencies": {
+    "leaflet": "^1.9.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "recharts": "^2.15.3"

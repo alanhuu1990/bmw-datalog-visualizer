@@ -69,6 +69,40 @@ Ambient baseline is the minimum valid IAT in the first 120 seconds (cold-start i
 
 ---
 
+## GPS fetch from Home Assistant (batch)
+
+Bootmod3 CSVs have no GPS columns. Use [`datalogs/Bootmod3/apexlog_datalog_manifest.csv`](datalogs/Bootmod3/apexlog_datalog_manifest.csv) to pull device_tracker history from Home Assistant for each datalog time window.
+
+**One-time setup**
+
+1. Home Assistant → Profile → Security → create a **long-lived access token**
+2. Confirm `device_tracker.alan_bb` (or your tracker entity) shows lat/lon in Developer Tools → States
+3. Run from a machine on the same LAN as `http://10.0.0.44:8123`
+
+**Fetch all logs in the manifest**
+
+```powershell
+$env:HA_TOKEN = "<your-long-lived-access-token>"
+npm run fetch-gps -- --manifest "datalogs/Bootmod3/apexlog_datalog_manifest.csv"
+```
+
+**Options**
+
+| Flag | Purpose |
+|------|---------|
+| `--dry-run` | Print time windows without calling HA |
+| `--log-id bm3_20260618_104600` | Fetch a single manifest row |
+| `--output-dir <path>` | Write sidecars elsewhere (default: manifest directory) |
+| `--entity device_tracker.alan_bb` | Override entity for all rows |
+
+Each row produces `{log_id}.gps.json` with log-relative `track` points (`t` in seconds from log start, `lat`, `lon`). The token is read from `HA_TOKEN` only — never commit it.
+
+```powershell
+npm run test:ha-gps   # unit checks for HA JSON parsing / merge
+```
+
+---
+
 ## Project layout
 
 ```
@@ -84,6 +118,10 @@ src/
     parseDatalog.js        — Bootmod3 / BimmerLink parsers
     phaseDetection.js      — speed-based phase boundaries
     ambient.js             — IAT ambient baseline
+    integrations/          — Home Assistant GPS fetch + merge (CLI + future UI)
+scripts/
+  fetch-manifest-gps.mjs   — batch GPS pull from manifest
+  test-ha-gps.mjs          — HA parser unit checks
 public/
   demo-commute.csv         — default demo log (BM3, 6-18-2026)
 datalogs/                  — sample files for manual testing

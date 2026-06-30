@@ -1,3 +1,7 @@
+import { headerToKey, parseUnitFromLabel, getDefaultSelectedKeys, THERMAL_ROLES } from './columnMeta.js';
+
+export { getDefaultSelectedKeys, THERMAL_ROLES };
+
 /** Parse a single CSV line respecting quoted fields. */
 export function parseCsvLine(line) {
   const fields = [];
@@ -90,33 +94,82 @@ function countValid(rows, key) {
   return rows.filter(r => isValidSample(r[key])).length;
 }
 
+function buildRoleByIndex(headers, aliases) {
+  const roleByIndex = {};
+  for (const [role, aliasList] of Object.entries(aliases)) {
+    if (role === 't' || !aliasList.length) continue;
+    const idx = findColumnIndex(headers, aliasList);
+    if (idx >= 0) roleByIndex[idx] = role;
+  }
+  return roleByIndex;
+}
+
+function isPlottableColumn(fields, colIdx) {
+  let numeric = 0;
+  let total = 0;
+  const sampleSize = Math.min(fields.length, 50);
+  for (let i = 1; i < sampleSize; i++) {
+    const val = fields[i]?.[colIdx];
+    if (val === undefined || val === '') continue;
+    total++;
+    if (parseFloatOrNull(val) !== null) numeric++;
+  }
+  return total === 0 || numeric / total >= 0.5;
+}
+
 function parseRows(csvText, source, aliases) {
   const lines = csvText.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) throw new Error('Datalog file has no data rows.');
 
   const headers = parseCsvLine(lines[0]);
-  const colIdx = {};
-  for (const [key, aliasList] of Object.entries(aliases)) {
-    colIdx[key] = aliasList.length ? findColumnIndex(headers, aliasList) : -1;
+  const timeIdx = findColumnIndex(headers, aliases.t);
+  if (timeIdx === -1) throw new Error('Missing required Time column.');
+
+  const roleByIndex = buildRoleByIndex(headers, aliases);
+  const usedKeys = new Set();
+
+  const columnDefs = [];
+  for (let i = 0; i < headers.length; i++) {
+    if (i === timeIdx) continue;
+    const label = headers[i].replace(/^"|"$/g, '').trim();
+    if (!label) continue;
+
+    let key = headerToKey(label);
+    if (usedKeys.has(key)) {
+      let n = 2;
+      while (usedKeys.has(`${key}_${n}`)) n++;
+      key = `${key}_${n}`;
+    }
+    usedKeys.add(key);
+
+    columnDefs.push({
+      key,
+      label,
+      unit: parseUnitFromLabel(label),
+      role: roleByIndex[i] ?? null,
+      colIdx: i,
+    });
   }
 
-  if (colIdx.t === -1) throw new Error('Missing required Time column.');
-
   const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const fields = parseCsvLine(lines[i]);
-    const t = parseFloatOrNull(fields[colIdx.t]);
+  for (let li = 1; li < lines.length; li++) {
+    const fields = parseCsvLine(lines[li]);
+    const t = parseFloatOrNull(fields[timeIdx]);
     if (!isValidSample(t)) continue;
 
     const row = { t };
-    for (const key of ['coolant', 'iat', 'oil', 'speed', 'boost']) {
-      const idx = colIdx[key];
-      let val = idx >= 0 ? parseFloatOrNull(fields[idx]) : null;
-
-      if (source === 'bimmerlink' && ['coolant', 'iat', 'oil'].includes(key) && t < 30 && val === 0) {
+    for (const col of columnDefs) {
+      let val = parseFloatOrNull(fields[col.colIdx]);
+      if (
+        source === 'bimmerlink'
+        && col.role
+        && ['coolant', 'iat', 'oil'].includes(col.role)
+        && t < 30
+        && val === 0
+      ) {
         val = null;
       }
-      row[key] = val;
+      row[col.key] = val;
     }
     rows.push(row);
   }
@@ -125,24 +178,26 @@ function parseRows(csvText, source, aliases) {
 
   rows.sort((a, b) => a.t - b.t);
 
-  const channels = {
-    coolant: countValid(rows, 'coolant') >= 2,
-    iat: countValid(rows, 'iat') >= 2,
-    oil: countValid(rows, 'oil') >= 2,
-    speed: countValid(rows, 'speed') >= 2,
-    boost: countValid(rows, 'boost') >= 2,
-  };
+  const columns = columnDefs
+    .map(({ key, label, unit, role }) => ({
+      key,
+      label,
+      unit,
+      role,
+      validCount: countValid(rows, key),
+    }))
+    .filter(c => c.validCount >= 2);
 
-  if (!channels.coolant && !channels.iat && !channels.oil) {
-    throw new Error('No temperature channels found in datalog.');
+  if (columns.length === 0) {
+    throw new Error('No plottable numeric columns found in datalog.');
   }
 
-  return { rows, source, channels };
+  return { rows, source, columns };
 }
 
 /**
  * Parse Bootmod3 or BimmerLink datalog content (CSV or BM3 HTML export).
- * @returns {{ rows, source, channels, mapName, fileName }}
+ * @returns {{ rows, source, columns, mapName, fileName }}
  */
 export function parseDatalog(content, fileName = '') {
   let csvText = content;
@@ -156,7 +211,7 @@ export function parseDatalog(content, fileName = '') {
   }
 
   const { source, aliases } = detectFormat(csvText);
-  const { rows, channels } = parseRows(csvText, source, aliases);
+  const { rows, columns } = parseRows(csvText, source, aliases);
 
-  return { rows, source, channels, mapName, fileName };
+  return { rows, source, columns, mapName, fileName };
 }

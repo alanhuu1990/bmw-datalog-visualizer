@@ -1,16 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 
-export function interp(rows, t) {
+export function interpAt(rows, t, keys = []) {
   const N = rows.length;
-  if (N === 0) return [0, 0, 0, 0, 0, 0];
-  if (t <= rows[0].t) {
-    const r = rows[0];
-    return [r.t, r.coolant ?? 0, r.iat ?? 0, r.oil ?? 0, r.speed ?? 0, r.boost ?? 0];
+  const values = {};
+
+  if (N === 0) {
+    for (const key of keys) values[key] = 0;
+    return { t, values };
   }
-  if (t >= rows[N - 1].t) {
-    const r = rows[N - 1];
-    return [r.t, r.coolant ?? 0, r.iat ?? 0, r.oil ?? 0, r.speed ?? 0, r.boost ?? 0];
-  }
+
+  const sample = (row) => {
+    for (const key of keys) {
+      values[key] = row[key] ?? 0;
+    }
+    return { t: row.t, values };
+  };
+
+  if (t <= rows[0].t) return sample(rows[0]);
+  if (t >= rows[N - 1].t) return sample(rows[N - 1]);
 
   let lo = 0;
   let hi = N - 1;
@@ -22,22 +29,16 @@ export function interp(rows, t) {
 
   const r0 = rows[lo];
   const r1 = rows[hi];
-  const f = (t - r0.t) / (r1.t - r0.t);
+  const span = r1.t - r0.t;
+  const f = span > 0 ? (t - r0.t) / span : 0;
 
-  const lerp = (a, b) => {
-    const va = a ?? 0;
-    const vb = b ?? 0;
-    return va + f * (vb - va);
-  };
+  for (const key of keys) {
+    const va = r0[key] ?? 0;
+    const vb = r1[key] ?? 0;
+    values[key] = va + f * (vb - va);
+  }
 
-  return [
-    t,
-    lerp(r0.coolant, r1.coolant),
-    lerp(r0.iat, r1.iat),
-    lerp(r0.oil, r1.oil),
-    lerp(r0.speed, r1.speed),
-    lerp(r0.boost, r1.boost),
-  ];
+  return { t, values };
 }
 
 export function usePlayback(totalT, rows) {

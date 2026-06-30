@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import FileUpload from './components/FileUpload';
 import ThermalPlayback from './components/ThermalPlayback';
@@ -12,6 +12,14 @@ import { parseGpx } from './lib/parseGpx';
 import { detectPhases } from './lib/phaseDetection';
 import { computeAmbient } from './lib/ambient';
 import { SYNC_MODES } from './lib/gpsSync';
+import {
+  loadSession,
+  saveDatalog,
+  saveGpx,
+  saveUi,
+  clearDatalog,
+  clearGpx,
+} from './lib/sessionPersistence';
 
 function buildLogState(parsed) {
   const ambient = computeAmbient(parsed.rows, parsed.columns);
@@ -27,6 +35,13 @@ function buildLogState(parsed) {
       fileName: parsed.fileName,
     },
   };
+}
+
+function resolveSelectedKeys(columns, restoreKeys) {
+  if (!restoreKeys?.length) return getDefaultSelectedKeys(columns);
+  const valid = new Set(columns.map(c => c.key));
+  const keys = restoreKeys.filter(k => valid.has(k));
+  return keys.length > 0 ? keys : getDefaultSelectedKeys(columns);
 }
 
 const shellFont = "'IBM Plex Mono','Fira Code','Courier New',monospace";
@@ -124,37 +139,167 @@ function AppRoutes() {
   const [syncMode, setSyncMode] = useState(SYNC_MODES.END);
   const [manualOffsetSec, setManualOffsetSec] = useState(0);
 
-  const loadDatalog = useCallback((content, fileName) => {
+  const skipPersistRef = useRef(true);
+  const uiRef = useRef({ selectedKeys, syncMode, manualOffsetSec });
+  uiRef.current = { selectedKeys, syncMode, manualOffsetSec };
+
+  const debouncedPersistUi = useMemo(() => {
+    let timer;
+    return () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!skipPersistRef.current) {
+          saveUi(uiRef.current);
+        }
+      }, 300);
+    };
+  }, []);
+
+  const persistUiNow = useCallback(() => {
+    if (!skipPersistRef.current) {
+      saveUi(uiRef.current);
+    }
+  }, []);
+
+  const applyDatalog = useCallback((content, fileName, { restoreKeys } = {}) => {
+    const parsed = parseDatalog(content, fileName);
+    const keys = resolveSelectedKeys(parsed.columns, restoreKeys);
+    setLog(buildLogState(parsed));
+    setSelectedKeys(keys);
+    setDatalogError(null);
+    return { parsed, keys };
+  }, []);
+
+  const applyGpx = useCallback((content, fileName) => {
+    const parsed = parseGpx(content, fileName);
+    setGpsTrack(parsed);
+    setGpsError(null);
+    return parsed;
+  }, []);
+
+  const loadDatalog = useCallback((content, fileName, { restoreKeys, persist = true } = {}) => {
     try {
-      const parsed = parseDatalog(content, fileName);
-      setLog(buildLogState(parsed));
-      setSelectedKeys(getDefaultSelectedKeys(parsed.columns));
-      setDatalogError(null);
+      const { keys } = applyDatalog(content, fileName, { restoreKeys });
+      if (persist) {
+        saveDatalog(content, fileName);
+        uiRef.current = { ...uiRef.current, selectedKeys: keys };
+        saveUi(uiRef.current);
+      }
     } catch (err) {
       setDatalogError(err.message || 'Failed to parse datalog.');
+      throw err;
     }
-  }, []);
+  }, [applyDatalog]);
 
-  const loadGpx = useCallback((content, fileName) => {
+  const loadGpx = useCallback((content, fileName, { persist = true } = {}) => {
     try {
-      const parsed = parseGpx(content, fileName);
-      setGpsTrack(parsed);
-      setGpsError(null);
+      applyGpx(content, fileName);
+      if (persist) saveGpx(content, fileName);
     } catch (err) {
       setGpsError(err.message || 'Failed to parse GPX.');
+      throw err;
     }
-  }, []);
+  }, [applyGpx]);
+
+  const loadDemoDatalog = useCallback(async () => {
+    const response = await fetch('/demo-commute.csv');
+    if (!response.ok) throw new Error('Demo datalog not found.');
+    const text = await response.text();
+    loadDatalog(text, 'demo-commute.csv', { persist: false });
+  }, [loadDatalog]);
 
   useEffect(() => {
-    fetch('/demo-commute.csv')
-      .then(r => {
-        if (!r.ok) throw new Error('Demo datalog not found.');
-        return r.text();
-      })
-      .then(text => loadDatalog(text, 'demo-commute.csv'))
-      .catch(err => setDatalogError(err.message))
-      .finally(() => setLoading(false));
-  }, [loadDatalog]);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const session = await loadSession();
+        if (cancelled) return;
+
+        if (session.ui) {
+          setSyncMode(session.ui.syncMode);
+          setManualOffsetSec(session.ui.manualOffsetSec);
+          uiRef.current = {
+            selectedKeys: session.ui.selectedKeys,
+            syncMode: session.ui.syncMode,
+            manualOffsetSec: session.ui.manualOffsetSec,
+          };
+        }
+
+        let restoredDatalog = false;
+        let restoredGpx = false;
+
+        if (session.datalog) {
+          try {
+            loadDatalog(session.datalog.content, session.datalog.fileName, {
+              restoreKeys: session.ui?.selectedKeys,
+              persist: false,
+            });
+            restoredDatalog = true;
+          } catch {
+            await clearDatalog();
+            setDatalogError('Saved datalog could not be restored.');
+          }
+        }
+
+        if (session.gpx) {
+          try {
+            loadGpx(session.gpx.content, session.gpx.fileName, { persist: false });
+            restoredGpx = true;
+          } catch {
+            await clearGpx();
+            setGpsError('Saved GPX could not be restored.');
+          }
+        }
+
+        if (!restoredDatalog && !restoredGpx) {
+          await loadDemoDatalog();
+        }
+      } catch (err) {
+        if (!cancelled) setDatalogError(err.message || 'Failed to load session.');
+      } finally {
+        if (!cancelled) {
+          skipPersistRef.current = false;
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [loadDatalog, loadGpx, loadDemoDatalog]);
+
+  const handleSelectedKeysChange = useCallback((keys) => {
+    setSelectedKeys(keys);
+    uiRef.current = { ...uiRef.current, selectedKeys: keys };
+    persistUiNow();
+  }, [persistUiNow]);
+
+  const handleSyncModeChange = useCallback((mode) => {
+    setSyncMode(mode);
+    uiRef.current = { ...uiRef.current, syncMode: mode };
+    persistUiNow();
+  }, [persistUiNow]);
+
+  const handleManualOffsetChange = useCallback((offset) => {
+    setManualOffsetSec(offset);
+    uiRef.current = { ...uiRef.current, manualOffsetSec: offset };
+    debouncedPersistUi();
+  }, [debouncedPersistUi]);
+
+  const handleClearDatalog = useCallback(() => {
+    setLog(null);
+    setSelectedKeys([]);
+    setDatalogError(null);
+    uiRef.current = { ...uiRef.current, selectedKeys: [] };
+    clearDatalog();
+    persistUiNow();
+  }, [persistUiNow]);
+
+  const handleClearGpx = useCallback(() => {
+    setGpsTrack(null);
+    setGpsError(null);
+    clearGpx();
+  }, []);
 
   const shellStyle = {
     background: '#090b10',
@@ -166,7 +311,7 @@ function AppRoutes() {
   if (loading) {
     return (
       <div style={{ ...shellStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        Loading demo datalog…
+        Loading…
       </div>
     );
   }
@@ -174,16 +319,16 @@ function AppRoutes() {
   const sharedProps = {
     log,
     selectedKeys,
-    onSelectedKeysChange: setSelectedKeys,
+    onSelectedKeysChange: handleSelectedKeysChange,
     gpsTrack,
     syncMode,
-    onSyncModeChange: setSyncMode,
+    onSyncModeChange: handleSyncModeChange,
     manualOffsetSec,
-    onManualOffsetChange: setManualOffsetSec,
+    onManualOffsetChange: handleManualOffsetChange,
     loadDatalog,
     loadGpx,
-    onClearDatalog: () => { setLog(null); setSelectedKeys([]); setDatalogError(null); },
-    onClearGpx: () => { setGpsTrack(null); setGpsError(null); },
+    onClearDatalog: handleClearDatalog,
+    onClearGpx: handleClearGpx,
     datalogError,
     gpsError,
     loading,

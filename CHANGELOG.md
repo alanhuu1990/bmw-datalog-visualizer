@@ -5,6 +5,11 @@ Version numbers follow semver and stay in sync with package.json.
 
 ## [Unreleased]
 
+### Added
+
+- Session persistence: last uploaded CSV/GPX files and playback UI state (selected columns, GPS sync mode, offset) restore after page refresh via IndexedDB
+- Clear (×) buttons remove persisted files; demo datalog loads only when no saved session exists
+
 ## [0.4.0] - 2026-06-30
 
 ### Added

@@ -1,12 +1,15 @@
+import { findColumnByRole } from './columnMeta.js';
+
 function isValidSpeed(val) {
   return val !== null && Number.isFinite(val);
 }
 
-function findSustainedStart(rows, threshold, minDuration) {
+function findSustainedStart(rows, speedKey, threshold, minDuration) {
   let start = null;
   for (const row of rows) {
-    if (!isValidSpeed(row.speed)) continue;
-    if (row.speed > threshold) {
+    const speed = row[speedKey];
+    if (!isValidSpeed(speed)) continue;
+    if (speed > threshold) {
       if (start === null) start = row.t;
       if (row.t - start >= minDuration) return start;
     } else {
@@ -16,14 +19,15 @@ function findSustainedStart(rows, threshold, minDuration) {
   return null;
 }
 
-function findHighFlowSpans(rows, speedThreshold = 45, minDuration = 45, mergeGap = 60) {
+function findHighFlowSpans(rows, speedKey, speedThreshold = 45, minDuration = 45, mergeGap = 60) {
   const spans = [];
   let spanStart = null;
   let lastAbove = null;
 
   for (const row of rows) {
-    if (!isValidSpeed(row.speed)) continue;
-    if (row.speed >= speedThreshold) {
+    const speed = row[speedKey];
+    if (!isValidSpeed(speed)) continue;
+    if (speed >= speedThreshold) {
       if (spanStart === null) spanStart = row.t;
       lastAbove = row.t;
     } else if (spanStart !== null && lastAbove !== null) {
@@ -48,17 +52,23 @@ function findHighFlowSpans(rows, speedThreshold = 45, minDuration = 45, mergeGap
  * Auto-detect drive phases from speed data.
  * @returns {{ warmupEnd, fwStart, fwEnd, totalT, hasPhases }}
  */
-export function detectPhases(rows, channels) {
-  const totalT = rows[rows.length - 1].t;
+export function detectPhases(rows, columns) {
+  if (rows.length === 0) {
+    return { warmupEnd: 0, fwStart: 0, fwEnd: 0, totalT: 0, hasPhases: false };
+  }
 
-  if (!channels.speed) {
+  const totalT = rows[rows.length - 1].t;
+  const speedCol = findColumnByRole(columns, 'speed');
+
+  if (!speedCol || speedCol.validCount < 2) {
     return { warmupEnd: 0, fwStart: 0, fwEnd: 0, totalT, hasPhases: false };
   }
 
-  const movementStart = findSustainedStart(rows, 5, 10);
+  const speedKey = speedCol.key;
+  const movementStart = findSustainedStart(rows, speedKey, 5, 10);
   const warmupEnd = movementStart ?? Math.min(200, totalT * 0.15);
 
-  const highFlow = findHighFlowSpans(rows);
+  const highFlow = findHighFlowSpans(rows, speedKey);
   if (!highFlow) {
     return { warmupEnd, fwStart: warmupEnd, fwEnd: warmupEnd, totalT, hasPhases: false };
   }

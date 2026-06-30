@@ -14,7 +14,7 @@ export function extractGpsFromHaState(state) {
   const lon = parseCoord(attrs.longitude);
   if (lat == null || lon == null) return null;
   if (lat === 0 && lon === 0) return null;
-  const iso = state.last_changed || state.last_updated;
+  const iso = state.last_updated || state.last_changed;
   if (!iso) return null;
   return { iso, lat, lon };
 }

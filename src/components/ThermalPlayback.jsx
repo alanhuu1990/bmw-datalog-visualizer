@@ -19,6 +19,7 @@ import {
 import {
   groupColumnsByUnit,
   autoDomain,
+  autoDomainForKeys,
   getColumnColor,
   formatValue,
   findColumnByRole,
@@ -109,6 +110,11 @@ export default function ThermalPlayback({
   const primaryYAxisId = unitOrder.length > 0 ? groups[unitOrder[0]].yAxisId : 'axis_0';
 
   const iatCol = useMemo(() => findColumnByRole(columns ?? [], 'iat'), [columns]);
+  const iatYAxisId = useMemo(() => {
+    if (!iatCol) return primaryYAxisId;
+    const unit = iatCol.unit || 'value';
+    return groups[unit]?.yAxisId ?? primaryYAxisId;
+  }, [iatCol, groups, primaryYAxisId]);
   const showIatDelta = iatCol && visibleKeys.includes(iatCol.key) && !hiddenKeys.has(iatCol.key);
 
   const seriesMeta = useMemo(
@@ -302,7 +308,7 @@ export default function ThermalPlayback({
                   </>
                 )}
                 {showIatDelta && (
-                  <ReferenceLine y={ambient} yAxisId={primaryYAxisId} stroke="#6b7280" strokeDasharray="4 4" strokeOpacity={0.4} />
+                  <ReferenceLine y={ambient} yAxisId={iatYAxisId} stroke="#6b7280" strokeDasharray="4 4" strokeOpacity={0.4} />
                 )}
                 <CartesianGrid strokeDasharray="2 4" stroke="#1a1f2e" vertical={false} />
                 <XAxis
@@ -312,7 +318,7 @@ export default function ThermalPlayback({
                 />
                 {unitOrder.map((unit, i) => {
                   const g = groups[unit];
-                  const domain = autoDomain(rows, g.keys[0]);
+                  const domain = autoDomainForKeys(rows, g.keys);
                   const isLeft = g.orientation === 'left';
                   return (
                     <YAxis
@@ -350,7 +356,7 @@ export default function ThermalPlayback({
                 ))}
                 {showIatDelta && (
                   <Line
-                    yAxisId={primaryYAxisId}
+                    yAxisId={iatYAxisId}
                     type="monotone"
                     dataKey="ambientRef"
                     name="Ambient"

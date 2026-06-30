@@ -35,6 +35,14 @@ assert.deepEqual(extractGpsFromHaState(HA_FIXTURE[0][0]), {
   lat: 42.3601,
   lon: -71.0589,
 });
+assert.deepEqual(
+  extractGpsFromHaState({
+    attributes: { latitude: 42.37, longitude: -71.07 },
+    last_changed: '2026-06-17T16:00:00.000Z',
+    last_updated: '2026-06-17T16:05:30.000Z',
+  }),
+  { iso: '2026-06-17T16:05:30.000Z', lat: 42.37, lon: -71.07 },
+);
 assert.equal(extractGpsFromHaState(HA_FIXTURE[0][2]), null);
 
 const samples = parseHaHistoryResponse(HA_FIXTURE);

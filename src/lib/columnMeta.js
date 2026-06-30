@@ -70,15 +70,7 @@ export function getColumnColor(column, index) {
   return EXTRA_COLORS[index % EXTRA_COLORS.length];
 }
 
-export function autoDomain(rows, key, paddingRatio = 0.05) {
-  let min = Infinity;
-  let max = -Infinity;
-  for (const row of rows) {
-    const v = row[key];
-    if (v == null || !Number.isFinite(v)) continue;
-    if (v < min) min = v;
-    if (v > max) max = v;
-  }
+function domainFromMinMax(min, max, paddingRatio) {
   if (!Number.isFinite(min)) return [0, 100];
   if (min === max) {
     const pad = Math.abs(min) * 0.1 || 1;
@@ -86,6 +78,24 @@ export function autoDomain(rows, key, paddingRatio = 0.05) {
   }
   const pad = (max - min) * paddingRatio;
   return [min - pad, max + pad];
+}
+
+export function autoDomain(rows, key, paddingRatio = 0.05) {
+  return autoDomainForKeys(rows, [key], paddingRatio);
+}
+
+export function autoDomainForKeys(rows, keys, paddingRatio = 0.05) {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const key of keys) {
+    for (const row of rows) {
+      const v = row[key];
+      if (v == null || !Number.isFinite(v)) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+  }
+  return domainFromMinMax(min, max, paddingRatio);
 }
 
 /** Assign yAxisId per unit; cap at 3 visible axes, extras share last axis. */

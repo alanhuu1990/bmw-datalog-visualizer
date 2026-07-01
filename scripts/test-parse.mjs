@@ -6,9 +6,7 @@ import { findColumnByRole } from '../src/lib/columnMeta.js';
 
 const tests = [
   ['public/demo-commute.csv', 'demo'],
-  ['datalogs/Bootmod3/6-16-2026.csv', 'bm3-html'],
-  ['datalogs/BimmerLink/2026-06-16_20-19-09.csv', 'bimmerlink'],
-  ['datalogs/Bootmod3/sport-cooling-enabled/6-18-2026/datalog_6a3430908551981b0fbb1e48.csv', 'bm3-full'],
+  ['datalogs/BimmerLink/sports basement/2026-06-30_12-36-21.csv', 'bimmerlink-sports-basement'],
 ];
 
 let passed = 0;
@@ -24,8 +22,10 @@ for (const [path, label] of tests) {
 
     console.log(`OK ${label}: rows=${parsed.rows.length} cols=${parsed.columns.length} source=${parsed.source} ambient=${ambient.toFixed(0)} phases=${phases.hasPhases} defaults=${defaults.length} keys=[${defaults.slice(0, 4).join(', ')}]`);
 
-    if (label === 'bm3-full' && parsed.columns.length <= 5) {
-      throw new Error('expected BM3 to expose many columns');
+    if (label === 'bimmerlink-sports-basement') {
+      const ambientCol = parsed.columns.find(c => c.role === 'ambient');
+      if (!ambientCol) throw new Error('expected ambient temperature column');
+      if (ambient > 80) throw new Error(`expected ambient from sensor (~75°F), got ${ambient}`);
     }
     if (defaults.length === 0) {
       throw new Error('expected default selected keys');

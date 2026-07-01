@@ -16,6 +16,7 @@ export default function GaugePanel({
   showIatDelta,
   ambient,
   curIAT,
+  playing = false,
   maxHeight,
   style,
 }) {
@@ -62,6 +63,7 @@ export default function GaugePanel({
               max={max}
               color={s.color}
               unit={s.col.unit === '°F' ? '°F' : s.col.unit}
+              live={playing}
             />
           );
         })}

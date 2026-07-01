@@ -64,27 +64,33 @@ export default function MapPlayback({
 
     const { full, reveal, marker } = layersRef.current;
 
-    if (reveal) reveal.remove();
-    if (marker) marker.remove();
-
     if (revealPath?.length >= 2) {
-      layersRef.current.reveal = L.polyline(toLatLngs(revealPath), ROUTE_STYLE).addTo(map);
-    } else {
+      const latlngs = toLatLngs(revealPath);
+      if (reveal) {
+        reveal.setLatLngs(latlngs);
+      } else {
+        layersRef.current.reveal = L.polyline(latlngs, ROUTE_STYLE).addTo(map);
+      }
+    } else if (reveal) {
+      reveal.remove();
       layersRef.current.reveal = null;
     }
 
     if (currentPosition) {
-      const icon = L.divIcon({
-        className: '',
-        html: '<div style="width:14px;height:14px;background:#f8fafc;border:2px solid #4ade80;border-radius:50%;box-shadow:0 0 8px #4ade8088;margin:-7px 0 0 -7px"></div>',
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
-      });
-      layersRef.current.marker = L.marker(
-        [currentPosition.lat, currentPosition.lon],
-        { icon, zIndexOffset: 1000 },
-      ).addTo(map);
-    } else {
+      const latlng = [currentPosition.lat, currentPosition.lon];
+      if (marker) {
+        marker.setLatLng(latlng);
+      } else {
+        const icon = L.divIcon({
+          className: '',
+          html: '<div style="width:14px;height:14px;background:#f8fafc;border:2px solid #4ade80;border-radius:50%;box-shadow:0 0 8px #4ade8088;margin:-7px 0 0 -7px"></div>',
+          iconSize: [14, 14],
+          iconAnchor: [7, 7],
+        });
+        layersRef.current.marker = L.marker(latlng, { icon, zIndexOffset: 1000 }).addTo(map);
+      }
+    } else if (marker) {
+      marker.remove();
       layersRef.current.marker = null;
     }
 

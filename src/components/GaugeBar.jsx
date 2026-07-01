@@ -1,4 +1,4 @@
-export default function GaugeBar({ label, value, min, max, color, unit, warningAt, dangerAt }) {
+export default function GaugeBar({ label, value, min, max, color, unit, warningAt, dangerAt, live = false }) {
   const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
   const isWarn = warningAt && value >= warningAt;
   const isDanger = dangerAt && value >= dangerAt;
@@ -19,7 +19,7 @@ export default function GaugeBar({ label, value, min, max, color, unit, warningA
             width: `${pct}%`,
             borderRadius: 4,
             background: `linear-gradient(90deg, ${color}88, ${barColor})`,
-            transition: 'width 0.12s ease, background 0.2s',
+            transition: live ? 'none' : 'width 0.12s ease, background 0.2s',
             boxShadow: isDanger ? `0 0 6px ${barColor}88` : 'none',
           }}
         />

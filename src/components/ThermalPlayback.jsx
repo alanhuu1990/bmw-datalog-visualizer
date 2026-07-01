@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceArea, ReferenceLine,
@@ -9,7 +9,7 @@ import GpsSyncControls from './GpsSyncControls';
 import ColumnSelector from './ColumnSelector';
 import { useVisualizerSettings } from '../context/VisualizerSettingsContext';
 import { PAGE_LAYOUTS } from '../lib/visualizerSettings';
-import { interpAt, usePlayback, PLAYBACK_SPEED_OPTIONS } from '../hooks/usePlayback';
+import { interpAt, usePlayback, PLAYBACK_SPEED_OPTIONS, sliceByTime } from '../hooks/usePlayback';
 import { getPhase, PHASE_LABELS, PHASE_COLORS } from '../lib/phaseDetection';
 import {
   SYNC_MODES,
@@ -142,6 +142,8 @@ export default function ThermalPlayback({
     handlePlayPause, handleReset, handleScrub, progressPct,
   } = usePlayback(totalT, timelineRows);
 
+  const deferredChartPlayTime = useDeferredValue(playTime);
+
   const effectiveGpsT = useMemo(() => {
     if (!hasGps) return null;
     if (!hasDatalog) return playTime;
@@ -179,11 +181,11 @@ export default function ThermalPlayback({
     });
   }, [rows, visibleKeys, hasDatalog, showIatDelta, iatCol, ambient]);
 
-  const visibleData = useMemo(() => {
+  const chartVisibleData = useMemo(() => {
     if (!hasDatalog || visibleKeys.length === 0) return chartData;
-    if (playTime >= totalT) return chartData;
-    const visible = chartData.filter(d => d.t <= playTime);
-    const { t, values } = interpAt(rows, playTime, visibleKeys);
+    if (deferredChartPlayTime >= totalT) return chartData;
+    const visible = sliceByTime(chartData, deferredChartPlayTime);
+    const { t, values } = interpAt(rows, deferredChartPlayTime, visibleKeys);
     const tip = { t, ...values };
     if (showIatDelta && iatCol) {
       tip.deltaIAT = (values[iatCol.key] ?? ambient) - ambient;
@@ -191,7 +193,7 @@ export default function ThermalPlayback({
     }
     visible.push(tip);
     return visible;
-  }, [chartData, playTime, totalT, rows, visibleKeys, hasDatalog, showIatDelta, iatCol, ambient]);
+  }, [chartData, deferredChartPlayTime, totalT, rows, visibleKeys, hasDatalog, showIatDelta, iatCol, ambient]);
 
   const currentValues = useMemo(() => {
     if (!hasDatalog || visibleKeys.length === 0) return {};
@@ -236,6 +238,7 @@ export default function ThermalPlayback({
     showIatDelta,
     ambient,
     curIAT,
+    playing,
   };
 
   const mapSection = hasGps ? (
@@ -258,7 +261,7 @@ export default function ThermalPlayback({
   const chartSection = hasDatalog && visibleKeys.length > 0 ? (
     <div style={{ flex: 1, minWidth: 0, background: '#0d1117', border: '1px solid #1f2937', borderRadius: 8, padding: '12px 6px 8px' }}>
       <ResponsiveContainer width="100%" height={260}>
-        <LineChart data={visibleData} margin={{ top: 4, right: 30, bottom: 4, left: 0 }}>
+        <LineChart data={chartVisibleData} margin={{ top: 4, right: 30, bottom: 4, left: 0 }}>
           {activePhases.hasPhases && (
             <>
               <ReferenceArea x1={0} x2={activePhases.warmupEnd} yAxisId={primaryYAxisId} fill="#1e3a5f" fillOpacity={0.22} />
@@ -477,7 +480,7 @@ export default function ThermalPlayback({
         IAT delta above ambient ({ambient.toFixed(0)}°F)
       </div>
       <ResponsiveContainer width="100%" height={90}>
-        <LineChart data={visibleData} margin={{ top: 2, right: 30, bottom: 2, left: 0 }}>
+        <LineChart data={chartVisibleData} margin={{ top: 2, right: 30, bottom: 2, left: 0 }}>
           {activePhases.hasPhases && (
             <ReferenceArea x1={activePhases.fwStart} x2={activePhases.fwEnd} yAxisId="d" fill="#14391e" fillOpacity={0.35} />
           )}

@@ -1,4 +1,5 @@
 import { headerToKey, parseUnitFromLabel, getDefaultSelectedKeys, THERMAL_ROLES } from './columnMeta.js';
+import { detectSource } from './importer.js';
 
 export { getDefaultSelectedKeys, THERMAL_ROLES };
 
@@ -75,15 +76,15 @@ const BL_ALIASES = {
 
 function detectFormat(csvText) {
   const firstLine = csvText.split(/\r?\n/)[0] ?? '';
-  const headers = parseCsvLine(firstLine).map(normalizeHeader);
+  const headers = parseCsvLine(firstLine);
+  const detection = detectSource(headers);
 
-  if (headers.some(h => h.includes('coolant temp[f]') || h.includes('vehicle speed[mph]'))) {
-    return { source: 'bootmod3', aliases: BM3_ALIASES };
+  if (detection.source === 'unknown') {
+    throw new Error('Unrecognized datalog format. Expected Bootmod3 or BimmerLink CSV.');
   }
-  if (headers.includes('coolant temperature') && headers.includes('intake air temperature')) {
-    return { source: 'bimmerlink', aliases: BL_ALIASES };
-  }
-  throw new Error('Unrecognized datalog format. Expected Bootmod3 or BimmerLink CSV.');
+
+  const aliases = detection.source === 'bootmod3' ? BM3_ALIASES : BL_ALIASES;
+  return { source: detection.source, aliases, detection };
 }
 
 function isValidSample(val) {
@@ -117,7 +118,7 @@ function isPlottableColumn(fields, colIdx) {
   return total === 0 || numeric / total >= 0.5;
 }
 
-function parseRows(csvText, source, aliases) {
+function parseRows(csvText, source, aliases, detection) {
   const lines = csvText.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) throw new Error('Datalog file has no data rows.');
 
@@ -192,12 +193,12 @@ function parseRows(csvText, source, aliases) {
     throw new Error('No plottable numeric columns found in datalog.');
   }
 
-  return { rows, source, columns };
+  return { rows, source, columns, detection };
 }
 
 /**
  * Parse Bootmod3 or BimmerLink datalog content (CSV or BM3 HTML export).
- * @returns {{ rows, source, columns, mapName, fileName }}
+ * @returns {{ rows, source, columns, mapName, fileName, detection }}
  */
 export function parseDatalog(content, fileName = '') {
   let csvText = content;
@@ -210,8 +211,8 @@ export function parseDatalog(content, fileName = '') {
     mapName = extracted.mapName;
   }
 
-  const { source, aliases } = detectFormat(csvText);
-  const { rows, columns } = parseRows(csvText, source, aliases);
+  const { source, aliases, detection } = detectFormat(csvText);
+  const { rows, columns } = parseRows(csvText, source, aliases, detection);
 
-  return { rows, source, columns, mapName, fileName };
+  return { rows, source, columns, mapName, fileName, detection };
 }

@@ -63,7 +63,7 @@ Ambient baseline is the minimum valid IAT in the first 120 seconds (cold-start i
 ## Controls
 
 - **▶ Play / ⏸ Pause / ↺ Replay** — time-based animation (not sample-indexed); lines draw in smoothly between unevenly spaced rows
-- **Playback rate** — 4× / 8× / 16× / 32× / 64× (default 16×)
+- **Playback rate** — 1× / 4× / 8× / 16× / 32× / 64× (default 16×)
 - **Scrub bar** — drag to any point; phase colors shown when speed data is present
 - **Legend toggles** — click Coolant, IAT, Oil, Speed, Boost to show/hide lines (Boost off by default)
 

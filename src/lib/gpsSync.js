@@ -64,8 +64,17 @@ export function interpGps(points, t) {
 /** GPS points visible up to gpsT (for progressive route reveal during playback). */
 export function gpsPathUpTo(points, gpsT) {
   if (!points.length || gpsT == null) return [];
-  const path = points.filter(p => p.t <= gpsT);
-  if (path.length === 0) return [points[0]];
+  if (gpsT <= points[0].t) return [points[0]];
+
+  let lo = 0;
+  let hi = points.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (points[mid].t <= gpsT) lo = mid;
+    else hi = mid - 1;
+  }
+
+  const path = points.slice(0, lo + 1);
   const pos = interpGps(points, gpsT);
   if (pos && path[path.length - 1].t < gpsT) {
     path.push({ t: pos.t, lat: pos.lat, lon: pos.lon });

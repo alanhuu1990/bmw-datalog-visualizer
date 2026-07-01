@@ -69,6 +69,7 @@ const BL_ALIASES = {
   coolant: ['coolant temperature'],
   iat: ['intake air temperature'],
   oil: ['oil temperature'],
+  ambient: ['ambient temperature'],
   speed: [],
   boost: [],
 };
@@ -163,7 +164,7 @@ function parseRows(csvText, source, aliases) {
       if (
         source === 'bimmerlink'
         && col.role
-        && ['coolant', 'iat', 'oil'].includes(col.role)
+        && ['coolant', 'iat', 'oil', 'ambient'].includes(col.role)
         && t < 30
         && val === 0
       ) {

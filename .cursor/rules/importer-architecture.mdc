@@ -1,0 +1,40 @@
+---
+description: Importer module architecture — source detection + normalization for BM3 and BimmerLink datalogs
+alwaysApply: true
+---
+
+# Importer Architecture
+
+## Overview
+
+The importer layer lives in `src/lib/importer.js` and provides auto-detection and normalization for Bootmod3 and BimmerLink datalogs. It sits between file upload and the existing parser (`src/lib/parseDatalog.js`).
+
+## Source Detection
+
+`detectSource(headers)` scores each source type by matching CSV column headers against known signatures:
+
+- **Bootmod3** — unique columns: `boost (pre-throttle)[psig]`, `WGDC[%]`, `HPFP Target[psi]`, `HPFP Actual[psi]`, `Ignition Cyl 1-6[deg]`, `Knock Correction Cyl 1-6[deg]`, `Torque (Actual)[Nm]`
+- **BimmerLink** — unique columns: `Coolant temperature`, `Oil temperature`, `Intake air temperature`, `Water pump speed`, `Target coolant temperature`, `E-fan duty cycle`
+- **MHD** — stubbed for future. Known patterns: `RPM (rpm)`, `Lambda bank 1 (AFR)`, `Boost pressure`, `WGDC`, `Timing correction`
+
+Returns: `{ source, confidence, score, foundChannels[], missingChannels[] }`
+
+## Normalized Schema
+
+`normalizeTelemetry(parsed)` maps source-specific columns into a shared schema:
+
+time, coolant, iat, oil, speed, boost, boostTarget, wgdc, lambda, hpfpTarget, hpfpActual, rpm, torque, knockDetected, knockCorrection, ignitionTiming, throttle
+
+Each column not present in the source CSV is returned as null/missing — non-breaking.
+
+## File Responsibilities
+
+| File | Role |
+|------|------|
+| `src/lib/importer.js` | Detection, scoring, normalization, source info |
+| `src/lib/parseDatalog.js` | CSV parsing, row iteration, value cleaning — unchanged interface |
+| `src/lib/columnMeta.js` | Column metadata, roles, colors — no changes needed |
+
+## No UI Changes
+
+The importer is a data-layer module. UI components (DetectionBanner, ThermalPlayback header) are separate concerns handled in a different issue/PR.
